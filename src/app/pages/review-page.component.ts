@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon'
 import { MatInputModule } from '@angular/material/input'
 import { MatSnackBar } from '@angular/material/snack-bar'
 import { MatStepperModule } from '@angular/material/stepper'
+import { Router } from '@angular/router'
 import { Store } from '@ngrx/store'
 import type { Observable } from 'rxjs'
 import { ClaimsService } from '../core/claims.service'
@@ -117,6 +118,7 @@ export class ReviewPageComponent {
     private readonly store: Store<AppState>,
     private readonly service: ClaimsService,
     private readonly snackBar: MatSnackBar,
+    private readonly router: Router,
   ) {
     this.claim$ = this.store.select(selectSelectedClaim)
   }
@@ -136,9 +138,14 @@ export class ReviewPageComponent {
   decide(claimId: string, role: string, result: string, index: number) {
     const comment = this.comments[index]?.trim()
     if (!comment) return
-    this.service.approve(claimId, { role, result, comment }).subscribe(() => {
-      this.store.select(selectSelectedClaim).subscribe((claim) => this.store.dispatch(updateClaim({ claim: structuredClone(claim) })))
-      this.snackBar.open(result === '已通过' ? '会签通过，已流转至下一级' : '案件已退回补件，原始记录未修改', '关闭', { duration: 2200 })
+    this.service.approve(claimId, { role, result, comment }).subscribe((updated) => {
+      this.store.dispatch(updateClaim({ claim: structuredClone(updated) }))
+      if (result === '已通过' && updated.status === '待支付') {
+        this.snackBar.open('会签全部通过，已生成唯一一份待生效支付依据，跳转资金台账确认付款', '前往', { duration: 3000 })
+        this.router.navigate(['/ledger'])
+      } else {
+        this.snackBar.open(result === '已通过' ? '会签通过，已流转至下一级' : '案件已退回补件，原始记录未修改', '关闭', { duration: 2200 })
+      }
       this.comments[index] = ''
     })
   }

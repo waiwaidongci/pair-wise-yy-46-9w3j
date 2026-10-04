@@ -51,6 +51,10 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
             <mat-icon matListItemIcon>approval</mat-icon>
             <span matListItemTitle>准备金审批</span>
           </a>
+          <a mat-list-item routerLink="/ledger" routerLinkActive="active">
+            <mat-icon matListItemIcon>account_balance_wallet</mat-icon>
+            <span matListItemTitle>资金台账</span>
+          </a>
           <a mat-list-item routerLink="/audit" routerLinkActive="active">
             <mat-icon matListItemIcon>history</mat-icon>
             <span matListItemTitle>审计与附件</span>
@@ -107,7 +111,7 @@ export class AppComponent implements OnInit {
       this.store.dispatch(loadClaimsSuccess({ items: result.items, total: result.total }))
     })
     this.store.select(selectClaimsState).subscribe((state) => {
-      localStorage.setItem('property-claims-draft-v1', JSON.stringify(state))
+      localStorage.setItem('property-claims-draft-v2', JSON.stringify(state))
       if (state.toast) this.snackBar.open(state.toast, '关闭', { duration: 1800 })
     })
   }

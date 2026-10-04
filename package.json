@@ -6,6 +6,7 @@
     "start": "ng serve --host 0.0.0.0 --port 62046",
     "dev": "ng serve --host 0.0.0.0 --port 62046",
     "build": "ng build",
+    "test:ledger": "esbuild scripts/ledger.spec.ts --bundle --platform=node --format=esm --outfile=scripts/ledger.spec.mjs && node scripts/ledger.spec.mjs && rm -f scripts/ledger.spec.mjs",
     "preview": "npx http-server dist/pair-wise-yy-46/browser -p 62046 -a 0.0.0.0"
   },
   "dependencies": {

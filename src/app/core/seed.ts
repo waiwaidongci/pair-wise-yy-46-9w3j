@@ -1,3 +1,4 @@
+import { emptyFund } from './ledger'
 import type { ClaimCase } from './models'
 
 export const seedClaims: ClaimCase[] = [
@@ -14,6 +15,7 @@ export const seedClaims: ClaimCase[] = [
     reserve: 1860000,
     paid: 0,
     deductible: 50000,
+    fund: emptyFund(),
     lossItems: [
       {
         id: 'LI-01',
@@ -87,6 +89,7 @@ export const seedClaims: ClaimCase[] = [
     reserve: 860000,
     paid: 0,
     deductible: 20000,
+    fund: emptyFund(),
     lossItems: [
       {
         id: 'LI-11',

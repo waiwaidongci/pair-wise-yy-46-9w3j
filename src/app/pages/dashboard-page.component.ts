@@ -14,7 +14,8 @@ import { Store } from '@ngrx/store'
 import type { Observable } from 'rxjs'
 import { StatusChipComponent } from '../shared/status-chip.component'
 import type { ClaimCase } from '../core/models'
-import { selectAllClaims, selectFilters, selectFilteredClaims, selectClaim, setFilters, type AppState } from '../core/claims.store'
+import { ledgerTotals } from '../core/ledger'
+import { selectAllClaims, selectFilters, selectFilteredClaims, selectFundSummary, selectClaim, setFilters, type AppState, type FundSummary } from '../core/claims.store'
 
 @Component({
   selector: 'app-dashboard-page',
@@ -49,9 +50,9 @@ import { selectAllClaims, selectFilters, selectFilteredClaims, selectClaim, setF
 
       <div class="metrics">
         <mat-card appearance="outlined"><span>在办案件</span><strong>{{ (claims$ | async)?.length }}</strong><small>2 个高风险</small></mat-card>
-        <mat-card appearance="outlined"><span>申请准备金</span><strong>{{ totalReserve$ | async | currency:'CNY':'symbol':'1.0-0' }}</strong><small>含待复核调整</small></mat-card>
-        <mat-card appearance="outlined"><span>待会签步骤</span><strong>{{ pendingApprovals$ | async }}</strong><small>按阈值自动升级</small></mat-card>
-        <mat-card appearance="outlined"><span>争议科目</span><strong class="warn">{{ disputedItems$ | async }}</strong><small>需补充证据</small></mat-card>
+        <mat-card appearance="outlined"><span>申请准备金</span><strong>{{ (fund$ | async)?.reserve | currency:'CNY':'symbol':'1.0-0' }}</strong><small>改动/差异后按台账重算</small></mat-card>
+        <mat-card appearance="outlined"><span>已付 / 已回款</span><strong class="pay">{{ (fund$ | async)?.paid | currency:'CNY':'symbol':'1.0-0' }}</strong><small>回款 {{ (fund$ | async)?.recovered | currency:'CNY':'symbol':'1.0-0' }}</small></mat-card>
+        <mat-card appearance="outlined"><span>未结金额</span><strong class="warn">{{ (fund$ | async)?.outstanding | currency:'CNY':'symbol':'1.0-0' }}</strong><small>与资金台账同源</small></mat-card>
       </div>
 
       <div class="dashboard-grid">
@@ -74,6 +75,8 @@ import { selectAllClaims, selectFilters, selectFilteredClaims, selectClaim, setF
                 <mat-option value="待复核">待复核</mat-option>
                 <mat-option value="退回补件">退回补件</mat-option>
                 <mat-option value="审批中">审批中</mat-option>
+                <mat-option value="待支付">待支付</mat-option>
+                <mat-option value="已结案">已结案</mat-option>
               </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -106,13 +109,20 @@ import { selectAllClaims, selectFilters, selectFilteredClaims, selectClaim, setF
                 <th mat-header-cell *matHeaderCellDef>准备金</th>
                 <td mat-cell *matCellDef="let claim">{{ claim.reserve | currency:'CNY':'symbol':'1.0-0' }}</td>
               </ng-container>
+              <ng-container matColumnDef="fund">
+                <th mat-header-cell *matHeaderCellDef>已付 / 未结</th>
+                <td mat-cell *matCellDef="let claim">
+                  <strong class="pay">{{ fundOf(claim).paid | currency:'CNY':'symbol':'1.0-0' }}</strong>
+                  <small [class.warn]="fundOf(claim).outstanding > 0">未结 {{ fundOf(claim).outstanding | currency:'CNY':'symbol':'1.0-0' }} · 回款 {{ fundOf(claim).recovered | currency:'CNY':'symbol':'1.0-0' }}</small>
+                </td>
+              </ng-container>
               <ng-container matColumnDef="risk">
                 <th mat-header-cell *matHeaderCellDef>风险</th>
                 <td mat-cell *matCellDef="let claim"><app-status-chip [label]="claim.riskLevel + '风险'" [tone]="claim.riskLevel === '高' ? 'warn' : claim.riskLevel === '中' ? 'default' : 'good'" /></td>
               </ng-container>
               <ng-container matColumnDef="status">
                 <th mat-header-cell *matHeaderCellDef>状态</th>
-                <td mat-cell *matCellDef="let claim"><app-status-chip [label]="claim.status" [tone]="claim.status === '待复核' ? 'warn' : 'good'" /></td>
+                <td mat-cell *matCellDef="let claim"><app-status-chip [label]="claim.status" [tone]="claim.status === '已结案' ? 'good' : claim.status === '查勘中' ? 'default' : 'warn'" /></td>
               </ng-container>
               <ng-container matColumnDef="action">
                 <th mat-header-cell *matHeaderCellDef></th>
@@ -166,10 +176,8 @@ export class DashboardPageComponent {
   claims$: Observable<ClaimCase[]>
   filteredClaims$: Observable<ClaimCase[]>
   filters$: Observable<import('../core/models').ClaimFilters>
-  totalReserve$: Observable<number>
-  pendingApprovals$: Observable<number>
-  disputedItems$: Observable<number>
-  columns = ['case', 'insured', 'reserve', 'risk', 'status', 'action']
+  fund$: Observable<FundSummary>
+  columns = ['case', 'insured', 'reserve', 'fund', 'risk', 'status', 'action']
 
   constructor(
     private readonly store: Store<AppState>,
@@ -178,9 +186,11 @@ export class DashboardPageComponent {
     this.claims$ = this.store.select(selectAllClaims)
     this.filteredClaims$ = this.store.select(selectFilteredClaims)
     this.filters$ = this.store.select(selectFilters)
-    this.totalReserve$ = this.store.select((state) => state.claims.items.reduce((sum, claim) => sum + claim.reserve, 0))
-    this.pendingApprovals$ = this.store.select((state) => state.claims.items.reduce((sum, claim) => sum + claim.approvals.filter((step) => step.status === '待处理').length, 0))
-    this.disputedItems$ = this.store.select((state) => state.claims.items.reduce((sum, claim) => sum + claim.lossItems.filter((item) => item.disputed).length, 0))
+    this.fund$ = this.store.select(selectFundSummary)
+  }
+
+  fundOf(claim: ClaimCase) {
+    return ledgerTotals(claim)
   }
 
   updateFilter(key: string, value: string) {
@@ -189,7 +199,7 @@ export class DashboardPageComponent {
 
   open(id: string) {
     this.store.dispatch(selectClaim({ id }))
-    this.router.navigate(['/assessment'])
+    this.router.navigate(['/ledger'])
   }
 
   openFirst() {

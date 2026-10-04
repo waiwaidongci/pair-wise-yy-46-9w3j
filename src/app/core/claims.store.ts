@@ -1,5 +1,6 @@
 import { createAction, createReducer, createSelector, on, props } from '@ngrx/store'
 import { seedClaims } from './seed'
+import { ledgerTotals } from './ledger'
 import type { ClaimCase, ClaimFilters } from './models'
 
 export type ClaimsState = {
@@ -14,7 +15,7 @@ export type ClaimsState = {
 
 export type AppState = { claims: ClaimsState }
 
-const persisted = localStorage.getItem('property-claims-draft-v1')
+const persisted = localStorage.getItem('property-claims-draft-v2')
 
 export const initialClaimsState: ClaimsState = persisted
   ? JSON.parse(persisted)
@@ -32,7 +33,7 @@ export const loadClaimsSuccess = createAction('[Claims] Load Success', props<{ i
 export const setFilters = createAction('[Claims] Set Filters', props<{ filters: Partial<ClaimFilters> }>())
 export const selectClaim = createAction('[Claims] Select', props<{ id: string }>())
 export const saveDraft = createAction('[Claims] Save Draft', props<{ draft: string }>())
-export const updateClaim = createAction('[Claims] Update Claim', props<{ claim: ClaimCase }>())
+export const updateClaim = createAction('[Claims] Update Claim', props<{ claim: ClaimCase; toast?: string }>())
 export const setToast = createAction('[Claims] Toast', props<{ message: string }>())
 
 export const claimsReducer = createReducer(
@@ -41,10 +42,10 @@ export const claimsReducer = createReducer(
   on(setFilters, (state, { filters }) => ({ ...state, filters: { ...state.filters, ...filters } })),
   on(selectClaim, (state, { id }) => ({ ...state, selectedId: id })),
   on(saveDraft, (state, { draft }) => ({ ...state, draft, toast: '草稿已恢复并保存到本地' })),
-  on(updateClaim, (state, { claim }) => ({
+  on(updateClaim, (state, { claim, toast }) => ({
     ...state,
     items: state.items.map((item) => (item.id === claim.id ? claim : item)),
-    toast: '案件版本已更新',
+    toast: toast ?? '',
   })),
   on(setToast, (state, { message }) => ({ ...state, toast: message })),
 )
@@ -61,3 +62,23 @@ export const selectFilteredClaims = createSelector(selectAllClaims, selectFilter
       (!filters.risk || item.riskLevel === filters.risk),
   ),
 )
+
+/** 主管视图资金口径：全部从同一资金台账派生，已付 / 未结不再分叉 */
+export type FundSummary = {
+  reserve: number
+  paid: number
+  recovered: number
+  outstanding: number
+  perClaim: Array<{ claim: ClaimCase; totals: ReturnType<typeof ledgerTotals> }>
+}
+
+export const selectFundSummary = createSelector(selectAllClaims, (claims): FundSummary => {
+  const totals = claims.map((claim) => ({ claim, totals: ledgerTotals(claim) }))
+  return {
+    reserve: totals.reduce((sum, { claim }) => sum + claim.reserve, 0),
+    paid: totals.reduce((sum, { totals }) => sum + totals.paid, 0),
+    recovered: totals.reduce((sum, { totals }) => sum + totals.recovered, 0),
+    outstanding: totals.reduce((sum, { totals }) => sum + totals.outstanding, 0),
+    perClaim: totals,
+  }
+})

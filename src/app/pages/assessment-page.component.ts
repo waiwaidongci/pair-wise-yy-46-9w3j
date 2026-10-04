@@ -13,6 +13,7 @@ import { MatTableModule } from '@angular/material/table'
 import { Store } from '@ngrx/store'
 import type { Observable } from 'rxjs'
 import { ClaimsService } from '../core/claims.service'
+import { activeBasis } from '../core/ledger'
 import type { ClaimCase } from '../core/models'
 import { selectSelectedClaim, updateClaim, type AppState } from '../core/claims.store'
 import { StatusChipComponent } from '../shared/status-chip.component'
@@ -97,7 +98,7 @@ import { StatusChipComponent } from '../shared/status-chip.component'
                 <div class="quote-form" *ngIf="quotingItemId === item.id">
                   <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>新报价</mat-label><input matInput type="number" [(ngModel)]="quoteAmount" /></mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="reason-field"><mat-label>调整理由（必填）</mat-label><input matInput [(ngModel)]="quoteReason" /></mat-form-field>
-                  <button mat-flat-button color="primary" [disabled]="!quoteReason.trim() || !quoteAmount" (click)="submitQuote(claim.id, item.id)">生成新版本</button>
+                  <button mat-flat-button color="primary" [disabled]="!quoteReason.trim() || !quoteAmount" (click)="submitQuote(claim, claim.id, item.id)">生成新版本</button>
                 </div>
               </div>
             </mat-expansion-panel>
@@ -204,11 +205,16 @@ export class AssessmentPageComponent {
     this.quoteReason = ''
   }
 
-  submitQuote(claimId: string, itemId: string) {
+  submitQuote(claim: ClaimCase, claimId: string, itemId: string) {
     if (!this.quoteReason.trim()) return
-    this.service.addQuote(claimId, { itemId, amount: Number(this.quoteAmount), reason: this.quoteReason }).subscribe(() => {
-      this.store.select(selectSelectedClaim).subscribe((claim) => this.store.dispatch(updateClaim({ claim: structuredClone(claim) })))
-      this.snackBar.open('新报价版本已生成，原记录保持可追溯', '关闭', { duration: 2200 })
+    const hadBasis = Boolean(activeBasis(claim))
+    this.service.addQuote(claimId, { itemId, amount: Number(this.quoteAmount), reason: this.quoteReason }).subscribe((updated) => {
+      this.store.dispatch(
+        updateClaim({
+          claim: structuredClone(updated),
+          toast: hadBasis ? '新报价版本已生成；金额改动使原支付依据失效，准备金已重算并回到会签' : '新报价版本已生成，原记录保持可追溯',
+        }),
+      )
       this.quotingItemId = ''
     })
   }
