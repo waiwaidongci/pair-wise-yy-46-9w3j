@@ -51,6 +51,10 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
             <mat-icon matListItemIcon>approval</mat-icon>
             <span matListItemTitle>准备金审批</span>
           </a>
+          <a mat-list-item routerLink="/funds" routerLinkActive="active">
+            <mat-icon matListItemIcon>account_balance</mat-icon>
+            <span matListItemTitle>资金台账</span>
+          </a>
           <a mat-list-item routerLink="/audit" routerLinkActive="active">
             <mat-icon matListItemIcon>history</mat-icon>
             <span matListItemTitle>审计与附件</span>
